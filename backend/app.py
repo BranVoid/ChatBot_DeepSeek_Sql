@@ -23,12 +23,16 @@ def generate_query():
         if not user_message:
             return jsonify({"error": "Message is required"}), 400
 
+        # Contexto inicial
+        print("Contexto recibido del usuario:", user_message)
+
+        # Generación de múltiples opciones para evaluación
         chat = client.chat.completions.create(
             model="deepseek/deepseek-r1:free",
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a SQL expert. Generate SQL queries based on the user's requirements. Provide only the SQL query in your response, unless the user asks for an explanation."
+                    "content": "You are a SQL expert. Generate multiple SQL query options based on the user's requirements. Evaluate each option logically and select the best one. Provide only the best SQL query in your response."
                 },
                 {
                     "role": "user", 
@@ -37,7 +41,11 @@ def generate_query():
             ]
         )
 
+        # Evaluación lógica y selección de la mejor opción
         response = chat.choices[0].message.content
+        print("Opciones evaluadas por el modelo:", response)
+
+        # Retorno de la mejor opción
         return jsonify({"query": response})
 
     except Exception as e:
