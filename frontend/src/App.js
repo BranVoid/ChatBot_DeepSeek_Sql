@@ -10,9 +10,14 @@ import {
   CircularProgress,
   IconButton,
   ThemeProvider,
-  createTheme
+  createTheme,
+  List,
+  ListItem,
+  ListItemText,
+  Divider
 } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 
 // Create a theme instance
 const theme = createTheme();
@@ -22,6 +27,7 @@ function App() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [history, setHistory] = useState([]); // Historial de mensajes
 
   const generateQuery = async () => {
     if (!message.trim()) {
@@ -36,7 +42,15 @@ function App() {
       const response = await axios.post('http://localhost:5000/generate-query', {
         message: message
       });
-      setQuery(response.data.query);
+      const generatedQuery = response.data.query;
+
+      // Actualizar el historial con el mensaje y la respuesta
+      setHistory((prevHistory) => [
+        ...prevHistory,
+        { user: message, system: generatedQuery }
+      ]);
+
+      setQuery(generatedQuery);
     } catch (err) {
       setError('Failed to generate query. Please try again.');
       console.error(err);
@@ -51,66 +65,85 @@ function App() {
 
   return (
     <ThemeProvider theme={theme}>
-      <Container maxWidth="md" sx={{ my: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Generador de Query de SQL
-        </Typography>
-        <Typography variant="body1" gutterBottom>
-          Describe que necesitas en lenguaje natural para obtener una consulta SQL generada.
-        </Typography>
-
-        <TextField
-          fullWidth
-          multiline
-          rows={8}
-          variant="outlined"
-          label="Describe la Query de SQL que necesitas"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder="Ejemplo: Yo tengo la llamada llamada 'usuarios' con las columnas id, nombre, correo y fecha de creacion. 
-          Me gustaria obtener los usuarios que se registraron en la ultima semana."
-          sx={{ mb: 2 }}
-        />
-
-        {error && (
-          <Typography color="error" gutterBottom>
-            {error}
-          </Typography>
-        )}
-
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={generateQuery}
-          disabled={loading}
+      <Box display="flex" height="100vh">
+        {/* Historial de mensajes en la columna izquierda */}
+        <Box 
+          flex={1} 
+          bgcolor="grey.100" 
+          p={2} 
+          overflow="auto" 
+          borderRight="1px solid grey"
+          maxWidth="200px" // Limitar el ancho de la columna izquierda
         >
-          {loading ? <CircularProgress size={24} /> : 'Genera la query de SQL'}
-        </Button>
+          <Typography variant="h6" gutterBottom>
+            Historial de Consultas
+          </Typography>
+          <List>
+            {history.map((entry, index) => (
+              <React.Fragment key={index}>
+                <ListItem alignItems="flex-start">
+                  <ListItemText
+                    primary={`Usuario: ${entry.user}`}
+                    secondary={`Sistema: ${entry.system}`}
+                  />
+                </ListItem>
+                <Divider />
+              </React.Fragment>
+            ))}
+          </List>
+        </Box>
 
-        {query && (
-          <Paper elevation={3} sx={{ p: 3, mt: 3, backgroundColor: 'grey.100' }}>
-            <Box display="flex" justifyContent="space-between" alignItems="center">
-              <Typography variant="h6" gutterBottom>
-                Query de SQL generada:
-              </Typography>
-              <IconButton onClick={copyToClipboard} title="Copy to clipboard">
-                <ContentCopyIcon />
-              </IconButton>
-            </Box>
-            <Box 
-              component="pre" 
-              sx={{ 
-                backgroundColor: 'white', 
-                p: 2, 
-                borderRadius: 1,
-                overflowX: 'auto'
-              }}
+        {/* Contenido principal en la columna derecha */}
+        <Box flex={2} p={2} bgcolor="white" maxWidth="700px" mx="auto">
+          <Typography variant="body1" gutterBottom>
+            Describe que necesitas en lenguaje natural para obtener una consulta SQL generada.
+          </Typography>
+
+          <Box display="flex" alignItems="flex-start" gap={2}>
+            <TextField
+              fullWidth
+              multiline
+              rows={4}
+              variant="outlined"
+              label="Describe la Query de SQL que necesitas"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Ejemplo: Yo tengo la llamada llamada 'usuarios' con las columnas id, nombre, correo y fecha de creacion. 
+              Me gustaria obtener los usuarios que se registraron en la ultima semana."
+              sx={{ mb: 2 }}
+            />
+
+            <IconButton
+              color="primary"
+              onClick={generateQuery}
+              disabled={loading}
+              sx={{ height: 'fit-content', mt: 1 }}
             >
-              {query}
+              {loading ? <CircularProgress size={24} /> : <ArrowForwardIcon />}
+            </IconButton>
+          </Box>
+
+          {error && (
+            <Typography color="error" gutterBottom>
+              {error}
+            </Typography>
+          )}
+
+          {query && (
+            <Box mt={2}>
+              <Typography variant="body1" gutterBottom>
+                Query generada:
+              </Typography>
+              <Paper elevation={1} sx={{ p: 2 }}>
+                <Typography variant="body2">{query}</Typography>
+                <IconButton onClick={copyToClipboard} sx={{ mt: 1 }}>
+                  <ContentCopyIcon />
+                </IconButton>
+              </Paper>
             </Box>
-          </Paper>
-        )}
-      </Container>
+          )}
+        </Box>
+      </Box>
     </ThemeProvider>
   );
 }
