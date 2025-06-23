@@ -32,7 +32,11 @@ def generate_query():
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a SQL expert. Generate multiple SQL query options based on the user's requirements. Evaluate each option logically and select the best one. Provide only the best SQL query in your response."
+                    "content": (
+                        "You are a SQL expert. Generate multiple SQL query options based on the user's requirements. "
+                        "Evaluate each option logically and select the best one. Provide the best SQL query in your response, "
+                        "along with a detailed explanation of why it was chosen over the other options."
+                    )
                 },
                 {
                     "role": "user", 
@@ -42,11 +46,11 @@ def generate_query():
         )
 
         # Evaluación lógica y selección de la mejor opción
-        response = chat.choices[0].message.content
-        print("Opciones evaluadas por el modelo:", response)
+        query = chat.choices[0].message.content
+        print("Evaluación lógica y opciones generadas por el modelo:", response)
 
-        # Retorno de la mejor opción
-        return jsonify({"query": response})
+        # Retorno de la mejor opción con explicación
+        return jsonify({"query": query})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
