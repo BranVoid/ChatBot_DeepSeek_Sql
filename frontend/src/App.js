@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   Container, 
@@ -16,21 +16,25 @@ import {
   ListItemText,
   Divider,
   Chip,
-  Tooltip
+  Tooltip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import AssistantIcon from '@mui/icons-material/Assistant';
 import PersonIcon from '@mui/icons-material/Person';
 import DeleteIcon from '@mui/icons-material/Delete';
+import PublishIcon from '@mui/icons-material/Publish';
 
-// Create a theme instance
 const theme = createTheme({
   palette: {
     primary: {
-      main: '#2e7d32', // verde financiero
+      main: '#2e7d32',
     },
     secondary: {
-      main: '#1565c0', // azul confianza
+      main: '#1565c0',
     },
   },
 });
@@ -40,6 +44,54 @@ function App() {
   const [conversation, setConversation] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [schemas, setSchemas] = useState([]);
+  const [selectedSchema, setSelectedSchema] = useState('');
+
+  useEffect(() => {
+    const fetchSchemas = async () => {
+      try {
+        const response = await axios.get('http://localhost:5000/get-schemas');
+        setSchemas(response.data.schemas);
+      } catch (err) {
+        console.error("Error cargando esquemas:", err);
+      }
+    };
+    fetchSchemas();
+  }, []);
+
+  const handleFileChange = (e) => {
+    setSelectedFile(e.target.files[0]);
+  };
+
+  const uploadSchema = async () => {
+    if (!selectedFile) {
+      setError('Por favor selecciona un archivo');
+      return;
+    }
+
+    setUploading(true);
+    setError('');
+    
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+
+    try {
+      const response = await axios.post('http://localhost:5000/upload-schema', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      setSchemas(response.data.schemas);
+      setSelectedFile(null);
+    } catch (err) {
+      setError('Error al cargar el esquema. Por favor intenta nuevamente.');
+      console.error(err);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const generateQuery = async () => {
     if (!inputMessage.trim()) {
@@ -51,19 +103,17 @@ function App() {
     setError('');
     
     try {
-      // Agregar mensaje de usuario a la conversación
       const userMessage = { role: 'user', content: inputMessage };
       const updatedConversation = [...conversation, userMessage];
       setConversation(updatedConversation);
       setInputMessage('');
 
-      // Enviar todo el historial de conversación al backend
       const response = await axios.post('http://localhost:5000/generate-query', {
         message: inputMessage,
-        history: updatedConversation.filter(msg => msg.role !== 'system')
+        history: updatedConversation.filter(msg => msg.role !== 'system'),
+        schema: selectedSchema
       });
 
-      // Agregar respuesta del asistente a la conversación
       setConversation(prev => [
         ...prev, 
         { role: 'assistant', content: response.data.response }
@@ -84,14 +134,11 @@ function App() {
     setConversation([]);
   };
 
-  // Extraer la última consulta SQL generada
   const lastSqlQuery = conversation.length > 0 && 
-                        conversation[conversation.length - 1].role === 'assistant' ?
-                        conversation[conversation.length - 1].content : '';
+                      conversation[conversation.length - 1].role === 'assistant' ?
+                      conversation[conversation.length - 1].content : '';
 
-  // Función para formatear el contenido del asistente
   const formatAssistantContent = (content) => {
-    // Si contiene un bloque de código SQL
     if (content.includes('```sql')) {
       const parts = content.split('```sql');
       const explanation = parts[0];
@@ -119,7 +166,6 @@ function App() {
       );
     }
     
-    // Si es una respuesta normal
     return (
       <Typography variant="body1" component="div" sx={{ whiteSpace: 'pre-line' }}>
         {content}
@@ -148,6 +194,54 @@ function App() {
         <Typography variant="subtitle1" gutterBottom color="primary">
           Experto en SQL, finanzas, microfinanzas y análisis comercial
         </Typography>
+
+        {/* Sección de carga de esquemas */}
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <input
+            accept=".txt"
+            style={{ display: 'none' }}
+            id="upload-schema-file"
+            type="file"
+            onChange={handleFileChange}
+          />
+          <label htmlFor="upload-schema-file">
+            <Button variant="outlined" component="span" startIcon={<PublishIcon />}>
+              Cargar TXT
+            </Button>
+          </label>
+          
+          {selectedFile && (
+            <Typography variant="body2" sx={{ ml: 1 }}>
+              {selectedFile.name}
+            </Typography>
+          )}
+          
+          <Button
+            variant="contained"
+            color="secondary"
+            onClick={uploadSchema}
+            disabled={!selectedFile || uploading}
+            sx={{ ml: 1 }}
+          >
+            {uploading ? <CircularProgress size={24} /> : 'Subir Esquema'}
+          </Button>
+          
+          {schemas.length > 0 && (
+            <FormControl sx={{ ml: 2, minWidth: 200 }}>
+              <InputLabel>Esquema activo</InputLabel>
+              <Select
+                value={selectedSchema}
+                onChange={(e) => setSelectedSchema(e.target.value)}
+                label="Esquema activo"
+              >
+                <MenuItem value="">Ninguno</MenuItem>
+                {schemas.map((schema) => (
+                  <MenuItem key={schema} value={schema}>{schema}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
+        </Box>
 
         {/* Historial de conversación */}
         <Paper elevation={2} sx={{ p: 2, mb: 2, maxHeight: '400px', overflowY: 'auto' }}>
